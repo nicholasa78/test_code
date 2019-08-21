@@ -1,0 +1,84 @@
+body file control { inputs => { "$(sys.libdir)/stdlib.cf" }; }
+
+
+bundle agent main {
+
+  commands:
+    any::
+      "/sbin/iptables-save > $(sys.statedir)/iptables.cfengine"
+         contain => in_shell,
+         unless => fileexists("$(sys.statedir)/iptables.cfengine"),
+         module => "true";
+
+    reload_iptables::
+      "/sbin/iptables-restore < $(sys.statedir)/iptables.cfengine"
+         contain => in_shell,
+         module => "true";
+
+
+  methods:
+    any::
+      "ip_blocker"
+         if => fileexists("$(sys.statedir)/iptables.cfengine");
+
+  reports:
+    reload_iptables::
+     "WE MADE REPAIRS!!!";
+
+}
+
+bundle agent ip_blocker {
+
+  vars:
+    centos.redhat::
+      "ip_block_list"
+         slist => grep(".*Invalid user.*",
+                    readstringlist("/var/log/secure", 
+                      "#[^\n]*", "[\n]", 100000000, 10000000)
+                      );
+
+    ubuntu::
+      "ip_block_list"
+         slist => grep(".*Invalid user.*",
+                    readstringlist("/var/log/auth.log", 
+                      "#[^\n]*", "[\n]", 100000000, 10000000)
+                      );
+
+    any::
+      "blocklist_length"
+         int => length( ip_block_list );
+
+      "blocklist_index"
+         slist => expandrange( "[0-$(blocklist_length)]", 1 );
+
+      "ip_address_to_block[$(blocklist_index)]"
+        string => regex_replace(
+                    regex_replace(
+                     nth(ip_block_list, $(blocklist_index)),
+                    ".*Invalid user.*from ", "", g), 
+                  " port.*", "", g);
+
+  files:
+    any::
+      "$(sys.statedir)/iptables.cfengine"
+         edit_line => edit_iptables($(ip_address_to_block[$(blocklist_index)]));
+
+
+}
+
+bundle edit_line edit_iptables(bad_ip) {
+
+  insert_lines:
+
+    "-A INPUT -s $(bad_ip)/32 -p tcp -m tcp --dport 22 -j DROP" 
+       location => iptables_location,
+       classes => if_repaired(reload_iptables) ;
+
+}
+
+body location iptables_location {
+
+      select_line_matching => ":OUTPUT ACCEPT.*";
+      before_after => "after";
+
+}
