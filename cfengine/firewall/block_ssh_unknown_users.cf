@@ -30,7 +30,7 @@ bundle agent main {
 bundle agent ip_blocker {
 
   vars:
-    centos.redhat::
+    centos|redhat::
       "ip_block_list"
          slist => grep(".*Invalid user.*",
                     readstringlist("/var/log/secure", 
