@@ -41,10 +41,16 @@ bundle agent ip_blocker {
   vars:
     any::
       "ip_block_list"
-         slist => grep(".*Invalid user.*",
-                    readstringlist("$(logfile)",
-                      "#[^\n]*", "[\n]", 100000000, 10000000)
-                      );
+        slist => grep(
+          ".*Invalid user.*",
+          readstringlist(
+            "$(logfile)",
+            "#[^\n]*",
+            "[\n]",
+            100000000,
+            10000000
+          )
+        );
 
     any::
       "blocklist_length"
