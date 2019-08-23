@@ -40,37 +40,30 @@ bundle agent ip_blocker {
 
   vars:
     any::
-      "ip_block_list"
-        slist => grep(
-          ".*Invalid user.*",
-          readstringlist(
-            "$(logfile)",
-            "#[^\n]*",
-            "[\n]",
-            100000000,
-            10000000
+      "ips_to_block"
+        slist => maplist(
+          regex_replace(
+            "$(this)",
+            ".*\b(\d+\.\d+\.\d+\.\d+)\b.*", # Could also use ".*Invalid user.*from ([0-9.]+) port.*"
+            "$1",
+            ""
+          ),
+          grep(
+            ".*Invalid user.*",
+            readstringlist(
+              "$(logfile)",
+              "#[^\n]*",
+              "[\n]",
+              100000000,
+              10000000
+            )
           )
         );
-
-    any::
-      "blocklist_length"
-         int => length( ip_block_list );
-
-      "blocklist_index"
-         slist => expandrange( "[0-$(blocklist_length)]", 1 );
-
-      "ip_address_to_block[$(blocklist_index)]"
-        string => regex_replace(
-                    regex_replace(
-                     nth(ip_block_list, $(blocklist_index)),
-                    ".*Invalid user.*from ", "", g), 
-                  " port.*", "", g);
 
   files:
     any::
       "$(sys.statedir)/iptables.cfengine"
-         edit_line => edit_iptables($(ip_address_to_block[$(blocklist_index)]));
-
+         edit_line => edit_iptables("$(ips_to_block)");
 
 }
 
