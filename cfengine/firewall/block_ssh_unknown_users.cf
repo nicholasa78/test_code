@@ -31,16 +31,18 @@ bundle agent ip_blocker {
 
   vars:
     centos|redhat::
-      "ip_block_list"
-         slist => grep(".*Invalid user.*",
-                    readstringlist("/var/log/secure", 
-                      "#[^\n]*", "[\n]", 100000000, 10000000)
-                      );
+      "logfile"
+        string => "/var/log/secure";
 
     ubuntu::
+      "logfile"
+        string => "/var/log/auth.log";
+
+  vars:
+    any::
       "ip_block_list"
          slist => grep(".*Invalid user.*",
-                    readstringlist("/var/log/auth.log", 
+                    readstringlist("$(logfile)",
                       "#[^\n]*", "[\n]", 100000000, 10000000)
                       );
 
